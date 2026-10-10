@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESP32 Detection | Control Center</title>
+
+<style>
+:root {
+  --bg: #080e18;
+  --panel: #111b2b;
+  --panel2: #162338;
+  --green: #00f5a0;
+  --blue: #55a7ff;
+  --red: #ff4757;
+  --text: #edf5ff;
+  --muted: #91a2ba;
+  --border: rgba(160,190,230,.14);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Inter, Arial, sans-serif;
+  background:
+    radial-gradient(ellipse at 15% 0%, #153044 0%, transparent 40%),
+    var(--bg);
+  color: var(--text);
+}
+button, input { font: inherit; }
+button { cursor: pointer; }
+.container { max-width: 1250px; margin: auto; padding: 24px; }
+
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap; margin-bottom: 26px;
+}
+.brand { display: flex; align-items: center; gap: 13px; }
+.logo {
+  width: 53px; height: 53px; display: grid; place-items: center;
+  border-radius: 16px; background: #00f5a015;
+  border: 1px solid #00f5a04d; font-size: 28px;
+}
+h1 { font-size: 23px; margin: 0 0 6px; letter-spacing: 1px; }
+.subtitle { color: var(--muted); font-size: 12px; }
+.pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 13px; border-radius: 30px;
+  background: var(--panel); border: 1px solid var(--border);
+  color: var(--muted); font-size: 12px;
+}
+.dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #8994a5; display: inline-block;
+}
+.dot.online { background: var(--green); box-shadow: 0 0 10px var(--green); }
+.grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 20px; }
+.panel {
+  background: linear-gradient(145deg, #142136, #0e1726);
+  border: 1px solid var(--border); border-radius: 20px;
+  padding: 22px; min-width: 0;
+}
+.panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 20px;
+}
+h2 { font-size: 15px; margin: 0; letter-spacing: .5px; }
+.kicker { color: var(--muted); font-size: 11px; margin-top: 6px; }
+.tag {
+  font-size: 10px; color: var(--green);
+  background: #00f5a012; padding: 7px 9px; border-radius: 7px;
+}
+.connect {
+  width: 100%; padding: 14px; border: 0; border-radius: 12px;
+  background: var(--green); color: #06150f; font-weight: 800;
+  transition: .2s;
+}
+.connect:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.connect:disabled { opacity: .55; cursor: wait; }
+.secondary {
+  padding: 10px 13px; border-radius: 10px; color: var(--text);
+  background: var(--panel2); border: 1px solid var(--border);
+}
+.connection-info {
+  display: flex; justify-content: space-between; gap: 10px;
+  color: var(--muted); font-size: 12px; margin: 15px 0 5px;
+}
+.value { color: var(--text); }
+.divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+.dpad { max-width: 330px; margin: 0 auto; }
+.dpad-row { display: flex; justify-content: center; gap: 12px; margin: 10px 0; }
+.move {
+  width: 88px; height: 72px; border-radius: 17px;
+  border: 1px solid #00f5a038; color: var(--green);
+  background: #00f5a00c; font-weight: 700;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 4px; touch-action: none;
+  user-select: none;
+}
+.move b { font-size: 24px; line-height: 1; }
+.move small { font-size: 10px; }
+.move:active { background: #00f5a02b; transform: scale(.96); }
+.stop {
+  width: 88px; height: 72px; border: 1px solid #ff475766;
+  border-radius: 17px; background: #ff47571c; color: var(--red);
+  font-weight: 900; font-size: 13px;
+}
+.stop:active { background: #ff47573d; }
+.speed-head { display: flex; justify-content: space-between; margin-bottom: 15px; }
+.speed-number { color: var(--green); font-weight: 800; }
+input[type=range] { width: 100%; accent-color: var(--green); cursor: pointer; }
+.scale { display: flex; justify-content: space-between; color: var(--muted); font-size: 10px; margin-top: 8px; }
+
+.status-card {
+  min-height: 165px; border-radius: 16px; padding: 20px;
+  background: #0b1524; border: 1px solid var(--border);
+  display: flex; flex-direction: column; justify-content: center; gap: 12px;
+}
+.status-icon { font-size: 30px; }
+.status-title { font-size: 21px; font-weight: 900; }
+.status-desc { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.fire .status-title { color: #ffc857; }
+.pump .status-title { color: var(--blue); }
+.notice {
+  margin-top: 14px; padding: 12px; border-radius: 10px;
+  color: #eacb87; background: #f5bc3010;
+  border: 1px solid #f5bc3027; font-size: 11px; line-height: 1.6;
+}
+.activity { margin-top: 20px; }
+.log {
+  list-style: none; padding: 0; margin: 0;
+  max-height: 210px; overflow-y: auto;
+}
+.log li {
+  display: flex; gap: 12px; padding: 12px 0;
+  border-bottom: 1px solid var(--border); font-size: 12px;
+}
+.log li:last-child { border-bottom: 0; }
+.log-time { color: var(--muted); min-width: 70px; }
+.log-msg { overflow-wrap: anywhere; }
+.log-empty { color: var(--muted); font-size: 12px; padding: 10px 0; }
+footer { text-align: center; color: #65758d; font-size: 11px; padding: 25px 0 8px; }
+
+@media(max-width: 760px) {
+  .container { padding: 15px; }
+  .grid { grid-template-columns: 1fr; }
+  .panel { padding: 18px; }
+  h1 { font-size: 19px; }
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<header>
+  <div class="brand">
+    <div class="logo">🤖</div>
+    <div>
+      <h1>ESP32 DETECTION</h1>
+      <div class="subtitle">ROBOTICS & FIRE SAFETY CONTROL CENTER</div>
+    </div>
+  </div>
+  <div class="pill">
+    <span class="dot" id="connectionDot"></span>
+    <span id="connectionBadge">DISCONNECTED</span>
+  </div>
+</header>
+
+<div class="grid">
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <h2>BLUETOOTH CONNECTION</h2>
+        <div class="kicker">Wireless robot communication</div>
+      </div>
+      <span class="tag">BLE</span>
+    </div>
+
+    <button class="connect" id="connectBtn" onclick="connectRobot()">
+      ↗ CONNECT TO ESP32
+    </button>
+
+    <div class="connection-info">
+      <span>Device</span><span class="value" id="deviceName">Not connected</span>
+    </div>
+    <div class="connection-info">
+      <span>Interface</span><span class="value">Bluetooth Low Energy</span>
+    </div>
+    <div class="connection-info">
+      <span>Robot state</span><span class="value" id="robotState">Stopped</span>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="panel-head">
+      <div>
+        <h2>ROBOT MOVEMENT</h2>
+        <div class="kicker">Hold a direction to move</div>
+      </div>
+      <span class="tag">4 MOTORS</span>
+    </div>
+
+    <div class="dpad">
+      <div class="dpad-row">
+        <button class="move" data-move="F">
+          <b>↑</b><small>FORWARD</small>
+        </button>
+      </div>
+      <div class="dpad-row">
+        <button class="move" data-move="L">
+          <b>←</b><small>LEFT</small>
+        </button>
+        <button class="stop" id="stopBtn">■ STOP</button>
+        <button class="move" data-move="R">
+          <b>→</b><small>RIGHT</small>
+        </button>
+      </div>
+      <div class="dpad-row">
+        <button class="move" data-move="B">
+          <b>↓</b><small>BACKWARD</small>
+        </button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="speed-head">
+      <h2>MOTOR SPEED</h2>
+      <span class="speed-number"><span id="speedValue">100</span> / 255</span>
+    </div>
+    <input type="range" id="speed" min="0" max="255" value="100">
+    <div class="scale"><span>0 · LOW</span><span>MAX · 255</span></div>
+  </section>
+
+  <section>
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>FIRE DETECTION</h2>
+          <div class="kicker">Flame sensor · GPIO 17</div>
+        </div>
+        <span class="tag">SAFETY</span>
+      </div>
+
+      <div class="status-card fire">
+        <div class="status-icon" id="fireIcon">◉</div>
+        <div class="status-title" id="fireTitle">AWAITING SENSOR</div>
+        <div class="status-desc" id="fireDesc">
+          Connect the detection telemetry to display real-time flame status.
+        </div>
+      </div>
+
+      <div class="notice" id="sensorNotice">
+        ⚠ Sensor status is not yet linked to this webpage. Do not assume
+        there is no fire based on this screen.
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="panel-head">
+        <div>
+          <h2>WATER PUMP</h2>
+          <div class="kicker">Relay control · GPIO 16</div>
+        </div>
+        <span class="tag">AUTO</span>
+      </div>
+
+      <div class="status-card pump">
+        <div class="status-icon">💧</div>
+        <div class="status-title" id="pumpTitle">STATUS UNKNOWN</div>
+        <div class="status-desc" id="pumpDesc">
+          The ESP32 operates the pump relay automatically. Live relay
+          status will appear here after telemetry is integrated.
+        </div>
+      </div>
+    </div>
+
+    <div class="panel activity">
+      <div class="panel-head">
+        <div>
+          <h2>ACTIVITY LOG</h2>
+          <div class="kicker">Recent controller events</div>
+        </div>
+        <button class="secondary" id="clearLog">Clear</button>
+      </div>
+      <ul class="log" id="log">
+        <li><span class="log-time">SYSTEM</span>
+            <span class="log-msg">Dashboard initialized.</span></li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+<footer>ESP32 DETECTION · ROBOT CONTROL & FIRE MONITORING</footer>
+</div>
+
+<script>
+const SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+const CHAR_UUID    = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+
+let device = null;
+let characteristic = null;
+let busy = false;
+let queue = Promise.resolve();
+let connected = false;
+let activeMove = "S";
+let pointerHeld = false;
+let speedTimer = null;
+
+const $ = id => document.getElementById(id);
+
+function logEvent(message) {
+  const list = $("log");
+  const li = document.createElement("li");
+  const time = document.createElement("span");
+  const msg = document.createElement("span");
+
+  time.className = "log-time";
+  time.textContent = new Date().toLocaleTimeString();
+  msg.className = "log-msg";
+  msg.textContent = message;
+
+  li.append(time, msg);
+  list.prepend(li);
+
+  while (list.children.length > 30) {
+    list.lastElementChild.remove();
+  }
+}
+
+function updateConnection(isConnected) {
+  connected = isConnected;
+  $("connectionDot").classList.toggle("online", isConnected);
+  $("connectionBadge").textContent =
+    isConnected ? "CONNECTED" : "DISCONNECTED";
+  $("deviceName").textContent =
+    isConnected ? "ESP32 DETECTION" : "Not connected";
+  $("connectBtn").textContent =
+    isConnected ? "✓ CONNECTED TO ESP32" : "↗ CONNECT TO ESP32";
+  $("connectBtn").disabled = isConnected;
+}
+
+async function connectRobot() {
+  if (!navigator.bluetooth) {
+    logEvent("Web Bluetooth unavailable. Use Chrome or Edge on HTTPS/localhost.");
+    alert("Web Bluetooth requires a supported browser and HTTPS or localhost.");
+    return;
+  }
+
+  $("connectBtn").disabled = true;
+
+  try {
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ name: "ESP32 DETECTION" }],
+      optionalServices: [SERVICE_UUID]
+    });
+
+    device.addEventListener("gattserverdisconnected", () => {
+      characteristic = null;
+      activeMove = "S";
+      updateConnection(false);
+      $("robotState").textContent = "Stopped";
+      logEvent("Bluetooth disconnected.");
+    });
+
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService(SERVICE_UUID);
+    characteristic = await service.getCharacteristic(CHAR_UUID);
+
+    updateConnection(true);
+    logEvent("Connected to ESP32 DETECTION.");
+
+    await sendCommand("S");
+    await sendCommand("V:" + $("speed").value);
+
+  } catch (error) {
+    updateConnection(false);
+    logEvent("Connection failed: " + error.message);
+    alert("Connection failed: " + error.message);
+  } finally {
+    $("connectBtn").disabled = connected;
+  }
+}
+
+// Queue writes so commands are not lost when BLE is busy.
+function sendCommand(command) {
+  if (!characteristic || !connected) {
+    return Promise.resolve(false);
+  }
+
+  queue = queue.then(async () => {
+    if (!characteristic || !connected) return false;
+
+    busy = true;
+    try {
+      const data = new TextEncoder().encode(command);
+      if (characteristic.writeValueWithResponse) {
+        await characteristic.writeValueWithResponse(data);
+      } else {
+        await characteristic.writeValue(data);
+      }
+      return true;
+    } catch (error) {
+      logEvent("BLE write failed: " + error.message);
+      return false;
+    } finally {
+      busy = false;
+    }
+  });
+
+  return queue;
+}
+
+async function startMove(direction) {
+  if (!connected || activeMove === direction) return;
+  activeMove = direction;
+  $("robotState").textContent =
+    ({F:"Forward", B:"Backward", L:"Left", R:"Right"})[direction];
+  await sendCommand(direction);
+  logEvent("Movement command: " + $("robotState").textContent);
+}
+
+async function stopRobot() {
+  activeMove = "S";
+  $("robotState").textContent = "Stopped";
+  await sendCommand("S");
+  logEvent("STOP command sent.");
+}
+
+document.querySelectorAll("[data-move]").forEach(button => {
+  button.addEventListener("pointerdown", async event => {
+    event.preventDefault();
+    pointerHeld = true;
+    button.setPointerCapture?.(event.pointerId);
+    await startMove(button.dataset.move);
+  });
+
+  const release = event => {
+    event.preventDefault();
+    if (!pointerHeld) return;
+    pointerHeld = false;
+    stopRobot();
+  };
+
+  button.addEventListener("pointerup", release);
+  button.addEventListener("pointercancel", release);
+  button.addEventListener("lostpointercapture", () => {
+    if (pointerHeld) {
+      pointerHeld = false;
+      stopRobot();
+    }
+  });
+});
+
+$("stopBtn").addEventListener("click", stopRobot);
+
+$("speed").addEventListener("input", event => {
+  const value = event.target.value;
+  $("speedValue").textContent = value;
+
+  clearTimeout(speedTimer);
+  speedTimer = setTimeout(async () => {
+    const ok = await sendCommand("V:" + value);
+    if (ok) logEvent("Motor speed set to " + value + "/255.");
+  }, 150);
+});
+
+$("clearLog").addEventListener("click", () => {
+  $("log").replaceChildren();
+  logEvent("Activity log cleared.");
+});
+
+window.addEventListener("blur", () => {
+  if (pointerHeld) {
+    pointerHeld = false;
+    stopRobot();
+  }
+});
+</script>
+</body>
+</html>
+
